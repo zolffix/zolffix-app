@@ -3,13 +3,16 @@ import { Quote } from '../types';
 
 const API_KEY = process.env.API_KEY;
 
-const getMockQuote = (category: string): Quote => ({
-  id: `mock-${Date.now()}-${Math.random()}`,
-  text: `This is a mock inspirational quote about ${category}. Stay positive and keep pushing forward!`,
-  author: 'Zolffix AI',
-  category,
-  imageUrl: `https://source.unsplash.com/1080x1080/?dark,cinematic,${encodeURIComponent(category)},abstract&random=${Math.random()}`,
-});
+const getMockQuote = (category: string): Quote => {
+  const keywords = `${category},nature,dark,cinematic,abstract,moody`;
+  return {
+    id: `mock-${Date.now()}-${Math.random()}`,
+    text: `This is a mock inspirational quote about ${category}. Stay positive and keep pushing forward!`,
+    author: 'Zolffix AI',
+    category,
+    imageUrl: `https://source.unsplash.com/featured/1080x1080/?${encodeURIComponent(keywords)}&random=${Math.random()}`,
+  };
+};
 
 export const generateQuote = async (category: string): Promise<Quote> => {
   if (!API_KEY) {
@@ -19,7 +22,7 @@ export const generateQuote = async (category: string): Promise<Quote> => {
 
   try {
     const ai = new GoogleGenAI({ apiKey: API_KEY });
-    const prompt = `Generate an original, deeply thoughtful, one-sentence motivational quote about "${category}" in a poetic and non-cliche tone. The author should be "Zolffix AI". Also provide 3-5 specific, descriptive keywords for a cinematic, dark-themed background image that captures the quote's essence. Format the response as a single JSON object with keys: "text" (string), "author" (string), and "imageKeywords" (array of strings).`;
+    const prompt = `Generate an original, deeply thoughtful, one-sentence motivational quote about "${category}" in a poetic and non-cliche tone. The author should be "Zolffix AI". Also provide an array of 3 simple, single-word keywords suitable for a search on Unsplash to find a cinematic, dark-themed background image that captures the quote's essence. Examples: 'ocean', 'forest', 'stars', 'rain', 'city'. Format the response as a single JSON object with keys: "text" (string), "author" (string), and "imageKeywords" (array of strings).`;
     
     const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -39,14 +42,16 @@ export const generateQuote = async (category: string): Promise<Quote> => {
     }
 
 
-    if (jsonResponse.text && jsonResponse.author && Array.isArray(jsonResponse.imageKeywords) && jsonResponse.imageKeywords.length > 0) {
-      const keywords = [...jsonResponse.imageKeywords, 'dark', 'cinematic', 'abstract'].join(',');
+    if (jsonResponse.text && jsonResponse.author && Array.isArray(jsonResponse.imageKeywords)) {
+      const primaryKeyword = jsonResponse.imageKeywords[0] || category;
+      const keywords = `${primaryKeyword},${category},dark,cinematic,moody,abstract,nature`;
+      
       return {
         id: `gemini-${Date.now()}-${Math.random()}`,
         text: jsonResponse.text,
         author: jsonResponse.author,
         category,
-        imageUrl: `https://source.unsplash.com/1080x1080/?${encodeURIComponent(keywords)}&random=${Math.random()}`,
+        imageUrl: `https://source.unsplash.com/featured/1080x1080/?${encodeURIComponent(keywords)}&random=${Math.random()}`,
       };
     } else {
         console.error("Invalid JSON structure from Gemini:", jsonResponse);

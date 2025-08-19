@@ -60,7 +60,7 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, isInteractive = true }) =>
     return (
         <div className="w-full">
             <div className="relative w-full bg-gradient-to-br from-gray-900 via-gray-900 to-black rounded-xl overflow-hidden shadow-lg shadow-black/50 flex flex-col p-8 text-center text-white">
-                <img src={quote.imageUrl} alt="Cinematic background for a quote" className="absolute top-0 left-0 w-full h-full object-cover opacity-50 z-0" />
+                <img src={quote.imageUrl} alt="Cinematic background for a quote" className="absolute top-0 left-0 w-full h-full object-cover opacity-60 z-0" />
                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-black/70 via-black/20 to-black/70 z-10"></div>
                 <div className="relative z-20 flex flex-col justify-between flex-grow w-full">
                     <div className="flex-grow flex items-center justify-center py-8">
@@ -72,7 +72,7 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, isInteractive = true }) =>
                 </div>
             </div>
              {isInteractive && (
-                <div className="flex justify-around items-center p-2 mt-4 bg-gray-800 rounded-full w-11/12 md:w-4/5 mx-auto">
+                <div className="flex justify-around items-center mt-4 w-full max-w-xs mx-auto">
                     <button onClick={handleLikeToggle} className="p-2 rounded-full hover:bg-white/10 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isLiked ? 'text-red-500' : 'text-gray-300'}>
                             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
