@@ -59,7 +59,7 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, isInteractive = true }) =>
 
     return (
         <div className="w-full">
-            <div className="relative w-full bg-gradient-to-br from-gray-900 via-gray-900 to-black rounded-xl overflow-hidden shadow-lg shadow-black/50 flex flex-col p-8 text-center text-white">
+            <div className="relative w-full aspect-square bg-gradient-to-br from-gray-900 via-gray-900 to-black rounded-xl overflow-hidden shadow-lg shadow-black/50 flex flex-col p-8 text-center text-white">
                 <img src={quote.imageUrl} alt="Cinematic background for a quote" className="absolute top-0 left-0 w-full h-full object-cover opacity-60 z-0" />
                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-black/70 via-black/20 to-black/70 z-10"></div>
                 <div className="relative z-20 flex flex-col justify-between flex-grow w-full">
