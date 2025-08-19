@@ -16,6 +16,7 @@ export interface Quote {
   imageUrl: string;
   liked?: boolean;
   saved?: boolean;
+  imageKeyword?: string;
 }
 
 export interface Habit {
