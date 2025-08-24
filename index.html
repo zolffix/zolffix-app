@@ -19,10 +19,14 @@
 </script>
 <style>
   /* Hides the scrollbar for a cleaner UI */
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar,
   #main-content::-webkit-scrollbar,
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+  html,
+  body,
   #main-content,
   .no-scrollbar {
     -ms-overflow-style: none;  /* IE and Edge */
