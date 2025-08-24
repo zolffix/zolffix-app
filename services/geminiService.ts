@@ -1,4 +1,4 @@
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import { Quote } from '../types';
 
 // The API key is accessed via process.env.API_KEY as per guidelines.
@@ -11,69 +11,96 @@ const getImageUrl = (keywords: string): string => {
   return `https://source.unsplash.com/1080x1080/?${encodeURIComponent(processedKeywords)}`;
 };
 
-const getMockQuote = (category: string): Quote => {
-  // Using a simpler, more reliable keyword combination for mock quotes
-  const keywords = `${category},nature,dark`;
-  return {
-    id: `mock-${Date.now()}-${Math.random()}`,
+const getMockQuotes = (category: string, count: number): Quote[] => {
+  return Array.from({ length: count }).map((_, i) => ({
+    id: `mock-${Date.now()}-${Math.random()}-${i}`,
     text: `This is a mock inspirational quote about ${category}. Stay positive and keep pushing forward!`,
     author: 'Zolffix AI',
     category,
-    imageUrl: getImageUrl(keywords),
+    imageUrl: getImageUrl(`${category},nature,dark`),
     imageKeyword: category,
-  };
+  }));
 };
 
-export const generateQuote = async (category: string): Promise<Quote> => {
+// New function to generate multiple quotes in a single API call
+export const generateQuotes = async (category: string, count: number): Promise<Quote[]> => {
+  if (count <= 0) return [];
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    // Refined prompt for more emotionally resonant quotes and better image keywords.
-    const prompt = `Generate an original, deeply thoughtful, and emotionally resonant one-sentence quote about "${category}". The tone must be poetic, profound, and avoid clichés. The author must be "Zolffix AI". Also, provide a single, powerful, one-word English keyword (e.g., 'solitude', 'resilience', 'journey', 'ocean', 'forest') that is highly suitable for finding a matching cinematic, dark, moody, and beautiful background image for the quote. Format the response as a single JSON object with keys: "text" (string), "author" (string), and "imageKeyword" (string).`;
-    
+    const prompt = `Generate ${count} original, deeply thoughtful, and emotionally resonant one-sentence quotes about "${category}". The tone must be poetic, profound, and avoid clichés. The author for all quotes must be "Zolffix AI". For each quote, also provide a single, powerful, one-word English keyword (e.g., 'solitude', 'resilience', 'journey', 'ocean', 'forest') that is highly suitable for finding a matching cinematic, dark, moody, and beautiful background image. Format the response as a single JSON array, where each object in the array has keys: "text" (string), "author" (string), and "imageKeyword" (string).`;
+
     const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-        },
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              text: { type: Type.STRING },
+              author: { type: Type.STRING },
+              imageKeyword: { type: Type.STRING }
+            },
+            required: ["text", "author", "imageKeyword"]
+          }
+        }
+      },
     });
 
     let textResponse = response.text.trim();
-    // Handle potential markdown code block wrapping from the API
     if (textResponse.startsWith("```json")) {
-        textResponse = textResponse.slice(7, -3).trim();
+      textResponse = textResponse.slice(7, -3).trim();
     } else if (textResponse.startsWith("```")) {
-        textResponse = textResponse.slice(3, -3).trim();
+      textResponse = textResponse.slice(3, -3).trim();
     }
 
-    let jsonResponse;
+    let jsonResponseArray;
     try {
-        jsonResponse = JSON.parse(textResponse);
+      jsonResponseArray = JSON.parse(textResponse);
     } catch (e) {
-        console.error("Failed to parse JSON from Gemini:", textResponse);
-        throw new Error("Invalid JSON response from Gemini API");
+      console.error("Failed to parse JSON array from Gemini:", textResponse);
+      throw new Error("Invalid JSON array response from Gemini API");
     }
 
-    // Updated logic to use the new 'imageKeyword' string property.
-    if (jsonResponse.text && jsonResponse.author && typeof jsonResponse.imageKeyword === 'string' && jsonResponse.imageKeyword.trim() !== '') {
-      const keywords = `${jsonResponse.imageKeyword},dark,cinematic,realistic,beautiful`;
-      
-      return {
-        id: `gemini-${Date.now()}-${Math.random()}`,
-        text: jsonResponse.text,
-        author: jsonResponse.author,
-        category,
-        imageUrl: getImageUrl(keywords),
-        imageKeyword: jsonResponse.imageKeyword,
-      };
-    } else {
-        console.error("Invalid JSON structure from Gemini:", jsonResponse);
-        throw new Error("Invalid JSON structure from Gemini API");
+    if (!Array.isArray(jsonResponseArray)) {
+      console.error("Gemini response is not an array:", jsonResponseArray);
+      throw new Error("Invalid data structure from Gemini API: Expected an array.");
     }
+
+    const quotes: Quote[] = jsonResponseArray.map((item): Quote | null => {
+      if (item.text && item.author && typeof item.imageKeyword === 'string' && item.imageKeyword.trim() !== '') {
+        const keywords = `${item.imageKeyword},dark,cinematic,realistic,beautiful`;
+        return {
+          id: `gemini-${Date.now()}-${Math.random()}`,
+          text: item.text,
+          author: item.author,
+          category,
+          imageUrl: getImageUrl(keywords),
+          imageKeyword: item.imageKeyword,
+        };
+      }
+      return null;
+    }).filter((q): q is Quote => q !== null);
+
+    return quotes;
+
   } catch (error) {
-    console.error("Error generating quote with Gemini:", error);
-    return getMockQuote(category); // Fallback to mock data on error
+    console.error(`Error generating ${count} quotes with Gemini:`, error);
+    return getMockQuotes(category, count); // Fallback to mock data on error
   }
+};
+
+
+export const generateQuote = async (category: string): Promise<Quote> => {
+    // This now uses the batch function for efficiency, fetching just one quote.
+    const quotes = await generateQuotes(category, 1);
+    if (quotes && quotes.length > 0) {
+        return quotes[0];
+    }
+    // Fallback if generateQuotes returns an empty array for some reason
+    return getMockQuotes(category, 1)[0];
 };
 
 export const generateImage = async (prompt: string): Promise<string> => {

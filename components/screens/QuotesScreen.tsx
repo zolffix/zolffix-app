@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useContext } from 'rea
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { QUOTE_CATEGORIES } from '../../constants';
 import { Quote } from '../../types';
-import { generateQuote } from '../../services/geminiService';
+import { generateQuotes } from '../../services/geminiService';
 import QuoteCard from '../QuoteCard';
 import { AppContext } from '../../App';
 
@@ -26,8 +26,7 @@ const QuotesScreen: React.FC = () => {
         isLoadingRef.current = true;
         setIsLoading(true);
         try {
-            const newQuotesPromises = Array.from({ length: count }, () => generateQuote(selectedCategory));
-            const newQuotes = await Promise.all(newQuotesPromises);
+            const newQuotes = await generateQuotes(selectedCategory, count);
             const validQuotes = newQuotes.filter(q => q && q.id);
             if (replace) {
                 setQuotes(validQuotes);

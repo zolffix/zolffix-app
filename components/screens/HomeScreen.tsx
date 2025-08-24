@@ -3,7 +3,7 @@ import { AppContext } from '../../App';
 import QuoteCard from '../QuoteCard';
 import { Quote, Mood, JournalEntry } from '../../types';
 import { MOODS, QUOTE_CATEGORIES } from '../../constants';
-import { generateQuote } from '../../services/geminiService';
+import { generateQuotes } from '../../services/geminiService';
 
 const HomeScreen: React.FC = () => {
     const context = useContext(AppContext);
@@ -22,11 +22,8 @@ const HomeScreen: React.FC = () => {
         setError(null);
         try {
             const categories = context?.favoriteCategories?.length ? context.favoriteCategories : QUOTE_CATEGORIES;
-            const newQuotesPromises = Array.from({ length: count }).map(() => {
-                const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-                return generateQuote(randomCategory);
-            });
-            const newQuotes = await Promise.all(newQuotesPromises);
+            const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+            const newQuotes = await generateQuotes(randomCategory, count);
             const validQuotes = newQuotes.filter(Boolean) as Quote[];
             
             if (validQuotes.length > 0) {
