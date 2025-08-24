@@ -77,7 +77,7 @@ const QuotesScreen: React.FC = () => {
         <div className="p-2 md:p-4">
             <h2 className="text-lg font-semibold text-gray-300 px-2 mb-4">Categories</h2>
             <div className="px-2 pb-4">
-                <div className="flex overflow-x-auto space-x-2 pb-2 -mx-2 px-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                <div className="flex overflow-x-auto space-x-2 pb-2 -mx-2 px-2 no-scrollbar">
                     {QUOTE_CATEGORIES.map(category => (
                         <button
                             key={category}

@@ -5,12 +5,6 @@ import { Quote, Mood, JournalEntry } from '../../types';
 import { MOODS, QUOTE_CATEGORIES } from '../../constants';
 import { generateQuote } from '../../services/geminiService';
 
-const RefreshIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-400">
-        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M21 21v-5h-5"></path>
-    </svg>
-);
-
 const HomeScreen: React.FC = () => {
     const context = useContext(AppContext);
     const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -23,12 +17,7 @@ const HomeScreen: React.FC = () => {
     
     const sliderRef = useRef<HTMLDivElement>(null);
 
-    // Pull to refresh state
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const [pullDistance, setPullDistance] = useState(0);
-    const pullDistanceRef = useRef(0);
-
-    const fetchQuotes = useCallback(async (count = 6) => {
+    const fetchQuotes = useCallback(async (count = 20) => {
         setIsLoading(true);
         setError(null);
         try {
@@ -55,69 +44,10 @@ const HomeScreen: React.FC = () => {
         }
     }, [context?.favoriteCategories]);
     
-    const refreshAction = useCallback(() => {
-        if(isRefreshing) return;
-        setIsRefreshing(true);
-        fetchQuotes(6).finally(() => {
-            setIsRefreshing(false);
-        });
-    }, [fetchQuotes, isRefreshing]);
-
     // Initial fetch on mount (fulfills refresh on app open)
     useEffect(() => {
-        fetchQuotes(6);
+        fetchQuotes();
     }, [fetchQuotes]);
-    
-    // Pull-to-refresh gesture handler
-    useEffect(() => {
-        const mainContent = document.getElementById('main-content');
-        if (!mainContent) return;
-
-        let pullStart: number | null = null;
-        
-        const handleTouchStart = (e: TouchEvent) => {
-            if (mainContent.scrollTop === 0 && !isRefreshing) {
-                pullStart = e.touches[0].clientY;
-            } else {
-                pullStart = null;
-            }
-        };
-        
-        const handleTouchMove = (e: TouchEvent) => {
-            if (pullStart !== null) {
-                const distance = e.touches[0].clientY - pullStart;
-                if (distance > 0) {
-                    e.preventDefault();
-                    setPullDistance(distance);
-                    pullDistanceRef.current = distance;
-                }
-            }
-        };
-        
-        const handleTouchEnd = () => {
-            if (pullStart !== null) {
-                if (pullDistanceRef.current > 100) { // Threshold to trigger refresh
-                    refreshAction();
-                }
-                pullStart = null;
-                // Animate back to original position
-                setPullDistance(0);
-                pullDistanceRef.current = 0;
-            }
-        };
-
-        mainContent.addEventListener('touchstart', handleTouchStart, { passive: true });
-        mainContent.addEventListener('touchmove', handleTouchMove, { passive: false });
-        mainContent.addEventListener('touchend', handleTouchEnd);
-        mainContent.addEventListener('touchcancel', handleTouchEnd);
-
-        return () => {
-            mainContent.removeEventListener('touchstart', handleTouchStart);
-            mainContent.removeEventListener('touchmove', handleTouchMove);
-            mainContent.removeEventListener('touchend', handleTouchEnd);
-            mainContent.removeEventListener('touchcancel', handleTouchEnd);
-        };
-    }, [refreshAction, isRefreshing]);
 
     const handleSaveJournal = () => {
         if (journalText.trim() && selectedMood) {
@@ -157,7 +87,7 @@ const HomeScreen: React.FC = () => {
          <div className="text-center py-6 p-4">
             <p className="text-red-400 mb-4">{error}</p>
             <button 
-                onClick={() => fetchQuotes(6)} 
+                onClick={() => fetchQuotes()} 
                 className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-6 rounded-lg transition-colors"
             >
                 Retry
@@ -170,16 +100,7 @@ const HomeScreen: React.FC = () => {
     }
 
     return (
-        <div style={{ transform: `translateY(${isRefreshing ? 60 : Math.min(pullDistance, 120)}px)`, transition: pullDistance === 0 ? 'transform 0.3s' : 'none' }}>
-            <div 
-                className="absolute top-0 left-0 right-0 flex justify-center items-center pt-4 pointer-events-none"
-                style={{ transform: 'translateY(-100%)', opacity: Math.min(pullDistance / 100, 1) }}
-            >
-                <div className={`p-2 bg-gray-800 rounded-full shadow-lg ${isRefreshing ? 'animate-spin' : ''}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }}>
-                    <RefreshIcon />
-                </div>
-            </div>
-
+        <div>
             {/* Quote Slider */}
             {isLoading && quotes.length === 0 ? (
                 <div className="w-full aspect-square flex justify-center items-center">
@@ -190,8 +111,7 @@ const HomeScreen: React.FC = () => {
                     <div
                         ref={sliderRef}
                         onScroll={handleScroll}
-                        className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth"
-                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                        className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar"
                     >
                         {quotes.map((quote) => (
                             <div key={quote.id} className="w-full flex-shrink-0 snap-center px-4">
@@ -201,7 +121,7 @@ const HomeScreen: React.FC = () => {
                     </div>
                     {quotes.length > 1 && (
                         <div className="flex justify-center items-center space-x-2 pt-4">
-                            {quotes.map((_, index) => (
+                            {quotes.slice(0, 6).map((_, index) => (
                                 <button
                                     key={index}
                                     onClick={() => {
