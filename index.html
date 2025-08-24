@@ -17,8 +17,19 @@
   }
 }
 </script>
+<style>
+  /* Hides the scrollbar for a cleaner UI */
+  #main-content::-webkit-scrollbar {
+    display: none;
+  }
+  #main-content {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+</style>
 </head>
   <body class="bg-gray-900">
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>

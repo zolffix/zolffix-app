@@ -27,8 +27,8 @@ const getMockQuote = (category: string): Quote => {
 export const generateQuote = async (category: string): Promise<Quote> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    // Updated prompt to request a single, more reliable keyword for a generic image service.
-    const prompt = `Generate an original, deeply thoughtful, one-sentence motivational quote about "${category}" in a poetic and non-cliche tone. The author should be "Zolffix AI". Also provide a single, common, one-word keyword (e.g., 'ocean', 'forest', 'stars', 'rain', 'city') suitable for a search on an image service to find a cinematic, dark-themed background image that captures the quote's essence. Format the response as a single JSON object with keys: "text" (string), "author" (string), and "imageKeyword" (string).`;
+    // Refined prompt for more emotionally resonant quotes and better image keywords.
+    const prompt = `Generate an original, deeply thoughtful, and emotionally resonant one-sentence quote about "${category}". The tone must be poetic, profound, and avoid clichés. The author must be "Zolffix AI". Also, provide a single, powerful, one-word English keyword (e.g., 'solitude', 'resilience', 'journey', 'ocean', 'forest') that is highly suitable for finding a matching cinematic, dark, moody, and beautiful background image for the quote. Format the response as a single JSON object with keys: "text" (string), "author" (string), and "imageKeyword" (string).`;
     
     const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -38,7 +38,14 @@ export const generateQuote = async (category: string): Promise<Quote> => {
         },
     });
 
-    const textResponse = response.text.trim();
+    let textResponse = response.text.trim();
+    // Handle potential markdown code block wrapping from the API
+    if (textResponse.startsWith("```json")) {
+        textResponse = textResponse.slice(7, -3).trim();
+    } else if (textResponse.startsWith("```")) {
+        textResponse = textResponse.slice(3, -3).trim();
+    }
+
     let jsonResponse;
     try {
         jsonResponse = JSON.parse(textResponse);
@@ -49,7 +56,7 @@ export const generateQuote = async (category: string): Promise<Quote> => {
 
     // Updated logic to use the new 'imageKeyword' string property.
     if (jsonResponse.text && jsonResponse.author && typeof jsonResponse.imageKeyword === 'string' && jsonResponse.imageKeyword.trim() !== '') {
-      const keywords = `${jsonResponse.imageKeyword},dark,cinematic`;
+      const keywords = `${jsonResponse.imageKeyword},dark,cinematic,realistic,beautiful`;
       
       return {
         id: `gemini-${Date.now()}-${Math.random()}`,
