@@ -20,10 +20,10 @@ export interface Quote {
 }
 
 export interface Habit {
-  id: string;
+  id:string;
   name: string;
   icon: string;
-  completed: boolean;
+  completedDates: string[]; // e.g., ["2023-10-27", "2023-10-26"]
   streak: number;
   reminderTime?: string; // e.g., "14:30"
 }

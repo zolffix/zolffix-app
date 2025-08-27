@@ -1,3 +1,4 @@
+
 import React, { useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppContext } from '../../App';
 import QuoteCard from '../QuoteCard';
@@ -96,6 +97,8 @@ const HomeScreen: React.FC = () => {
         return <ErrorDisplay />;
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+
     return (
         <div>
             {/* Quote Slider */}
@@ -144,20 +147,23 @@ const HomeScreen: React.FC = () => {
                         <button onClick={() => context?.setActiveScreen('habits')} className="text-sm text-cyan-400 hover:text-cyan-300">View All</button>
                     </div>
                     <div className="space-y-3">
-                        {context?.habits.slice(0, 3).map(habit => (
-                            <div key={habit.id} className="bg-gray-800 p-4 rounded-lg flex items-center justify-between">
-                                <div className="flex items-center">
-                                    <span className="text-2xl mr-4">{habit.icon}</span>
-                                    <div>
-                                        <p className="font-medium text-white">{habit.name}</p>
-                                        <p className="text-xs text-gray-400">Streak: {habit.streak} days</p>
+                        {context?.habits.slice(0, 3).map(habit => {
+                            const isCompletedToday = habit.completedDates.includes(todayStr);
+                            return (
+                                <div key={habit.id} className="bg-gray-800 p-4 rounded-lg flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        <span className="text-2xl mr-4">{habit.icon}</span>
+                                        <div>
+                                            <p className="font-medium text-white">{habit.name}</p>
+                                            <p className="text-xs text-gray-400">Streak: {habit.streak} days</p>
+                                        </div>
                                     </div>
+                                    <button onClick={() => context?.setActiveScreen('habits')} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isCompletedToday ? 'bg-cyan-500 border-cyan-500' : 'border-gray-500'}`}>
+                                        {isCompletedToday && <span className="text-white">✓</span>}
+                                    </button>
                                 </div>
-                                <button onClick={() => context?.setActiveScreen('habits')} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${habit.completed ? 'bg-cyan-500 border-cyan-500' : 'border-gray-500'}`}>
-                                    {habit.completed && <span className="text-white">✓</span>}
-                                </button>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </section>
                 

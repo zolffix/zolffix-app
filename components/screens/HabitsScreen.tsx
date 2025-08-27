@@ -1,4 +1,5 @@
-import React, { useContext, useState, useEffect } from 'react';
+
+import React, { useContext, useState, useEffect, useMemo } from 'react';
 import { AppContext } from '../../App';
 import { Habit } from '../../types';
 
@@ -12,7 +13,72 @@ const formatTime = (time24: string | undefined): string => {
     return `${hour}:${minute} ${ampm}`;
 };
 
-const HabitForm: React.FC<{ onSave: (habit: Habit) => void; onCancel: () => void; habitToEdit: Habit | null }> = ({ onSave, onCancel, habitToEdit }) => {
+const getISODateString = (date: Date = new Date()): string => {
+    return date.toISOString().split('T')[0];
+};
+
+const Calendar: React.FC<{ currentDate: Date; habits: Habit[] }> = ({ currentDate, habits }) => {
+    const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    const startDate = new Date(monthStart);
+    startDate.setDate(startDate.getDate() - startDate.getDay()); // Start from the Sunday of the first week
+    const endDate = new Date(monthEnd);
+    if (endDate.getDay() !== 6) {
+        endDate.setDate(endDate.getDate() + (6 - endDate.getDay())); // End on the Saturday of the last week
+    }
+
+    const days = [];
+    let day = new Date(startDate);
+    while (day <= endDate) {
+        days.push(new Date(day));
+        day.setDate(day.getDate() + 1);
+    }
+    
+    const habitCompletionsByDate = useMemo(() => {
+        const map: { [key: string]: string[] } = {};
+        const colors = ['bg-cyan-400', 'bg-pink-400', 'bg-yellow-400', 'bg-green-400', 'bg-purple-400', 'bg-orange-400'];
+        habits.forEach((habit, habitIndex) => {
+            const color = colors[habitIndex % colors.length];
+            habit.completedDates.forEach(dateStr => {
+                if (!map[dateStr]) map[dateStr] = [];
+                map[dateStr].push(color);
+            });
+        });
+        return map;
+    }, [habits]);
+
+    return (
+        <div className="bg-gray-800 p-4 rounded-lg">
+            <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-400 mb-2">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i}>{d}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+                {days.map((d, i) => {
+                    const dateStr = getISODateString(d);
+                    const isCurrentMonth = d.getMonth() === currentDate.getMonth();
+                    const isToday = getISODateString(d) === getISODateString();
+                    const completions = habitCompletionsByDate[dateStr] || [];
+                    
+                    return (
+                        <div key={i} className="flex flex-col items-center justify-start py-1 rounded-lg aspect-square">
+                            <span className={`flex items-center justify-center w-7 h-7 rounded-full text-sm ${isCurrentMonth ? 'text-gray-200' : 'text-gray-600'} ${isToday ? 'bg-cyan-500 text-gray-900 font-bold' : ''}`}>
+                                {d.getDate()}
+                            </span>
+                            <div className="flex flex-wrap justify-center items-center gap-0.5 mt-1 h-3">
+                                {completions.slice(0, 4).map((color, index) => (
+                                    <div key={index} className={`w-1.5 h-1.5 rounded-full ${color}`}></div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+
+const HabitForm: React.FC<{ onSave: (habit: Omit<Habit, 'id' | 'streak' | 'completedDates'> & Partial<Habit>) => void; onCancel: () => void; habitToEdit: Habit | null }> = ({ onSave, onCancel, habitToEdit }) => {
     const [name, setName] = useState('');
     const [icon, setIcon] = useState('💪');
     const [reminderTime, setReminderTime] = useState('');
@@ -31,11 +97,8 @@ const HabitForm: React.FC<{ onSave: (habit: Habit) => void; onCancel: () => void
         if (name.trim()) {
             onSave({
                 ...habitToEdit,
-                id: habitToEdit ? habitToEdit.id : `habit-${Date.now()}`,
                 name: name.trim(),
                 icon,
-                completed: habitToEdit ? habitToEdit.completed : false,
-                streak: habitToEdit ? habitToEdit.streak : 0,
                 reminderTime: reminderTime || undefined,
             });
         }
@@ -90,6 +153,7 @@ const HabitForm: React.FC<{ onSave: (habit: Habit) => void; onCancel: () => void
 };
 
 const HabitItem: React.FC<{ habit: Habit; onToggle: (id: string) => void; onEdit: (habit: Habit) => void; onDelete: (id: string) => void }> = ({ habit, onToggle, onEdit, onDelete }) => {
+    const isCompletedToday = habit.completedDates.includes(getISODateString());
     return (
         <div className="bg-gray-800 p-4 rounded-lg flex items-center justify-between transition-all hover:bg-gray-700/80">
             <div className="flex items-center">
@@ -114,8 +178,8 @@ const HabitItem: React.FC<{ habit: Habit; onToggle: (id: string) => void; onEdit
                 <button onClick={() => onDelete(habit.id)} className="text-gray-500 hover:text-red-500 p-1" aria-label={`Delete ${habit.name} habit`}>
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                 </button>
-                 <button onClick={() => onToggle(habit.id)} className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-transform transform active:scale-90 ${habit.completed ? 'bg-cyan-500 border-cyan-500' : 'border-gray-500 hover:border-cyan-400'}`} aria-label={`Mark ${habit.name} as ${habit.completed ? 'incomplete' : 'complete'}`}>
-                    {habit.completed && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                 <button onClick={() => onToggle(habit.id)} className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-transform transform active:scale-90 ${isCompletedToday ? 'bg-cyan-500 border-cyan-500' : 'border-gray-500 hover:border-cyan-400'}`} aria-label={`Mark ${habit.name} as ${isCompletedToday ? 'incomplete' : 'complete'}`}>
+                    {isCompletedToday && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
                 </button>
             </div>
         </div>
@@ -126,19 +190,58 @@ const HabitsScreen: React.FC = () => {
     const context = useContext(AppContext);
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+    const [currentDate, setCurrentDate] = useState(new Date());
 
     if (!context) return null;
     
     const { habits, setHabits } = context;
 
+    const calculateStreak = (dates: string[]): number => {
+        if (!dates || dates.length === 0) return 0;
+        
+        const dateSet = new Set(dates);
+        const today = new Date();
+        
+        const sortedDates = dates.map(d => new Date(d)).sort((a, b) => b.getTime() - a.getTime());
+        const mostRecentDate = sortedDates[0];
+
+        const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const mostRecentDateOnly = new Date(mostRecentDate.getFullYear(), mostRecentDate.getMonth(), mostRecentDate.getDate());
+        const diffTime = todayDate.getTime() - mostRecentDateOnly.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays > 1) return 0;
+        
+        let streak = 0;
+        let currentDate = mostRecentDate;
+        while (true) {
+            const dateString = currentDate.toISOString().split('T')[0];
+            if (dateSet.has(dateString)) {
+                streak++;
+                currentDate.setDate(currentDate.getDate() - 1);
+            } else {
+                break;
+            }
+        }
+        return streak;
+    };
+
+
     const handleToggleHabit = (id: string) => {
+        const todayStr = getISODateString();
         setHabits(habits.map(h => {
             if (h.id === id) {
-                const isCompleting = !h.completed;
+                const newCompletedDates = new Set(h.completedDates);
+                if (newCompletedDates.has(todayStr)) {
+                    newCompletedDates.delete(todayStr); // Un-completing
+                } else {
+                    newCompletedDates.add(todayStr); // Completing
+                }
+                const updatedDatesArray = Array.from(newCompletedDates);
                 return { 
                     ...h, 
-                    completed: isCompleting, 
-                    streak: isCompleting ? h.streak + 1 : Math.max(0, h.streak - 1) 
+                    completedDates: updatedDatesArray,
+                    streak: calculateStreak(updatedDatesArray),
                 };
             }
             return h;
@@ -156,24 +259,54 @@ const HabitsScreen: React.FC = () => {
         setIsFormVisible(true);
     };
 
-    const handleSaveHabit = (habitToSave: Habit) => {
-        if (habits.some(h => h.id === habitToSave.id)) {
-            // Editing existing habit
-            setHabits(habits.map(h => h.id === habitToSave.id ? habitToSave : h));
-        } else {
-            // Adding new habit
-            setHabits([habitToSave, ...habits]);
+    const handleSaveHabit = (habitData: Omit<Habit, 'id' | 'streak' | 'completedDates'> & Partial<Habit>) => {
+        if (habitData.id) { // Editing existing habit
+            setHabits(habits.map(h => h.id === habitData.id ? { ...h, ...habitData } : h));
+        } else { // Adding new habit
+            const newHabit: Habit = {
+                id: `habit-${Date.now()}`,
+                name: habitData.name,
+                icon: habitData.icon,
+                completedDates: [],
+                streak: 0,
+                reminderTime: habitData.reminderTime
+            };
+            setHabits([newHabit, ...habits]);
         }
         setIsFormVisible(false);
         setEditingHabit(null);
     };
 
+    const handlePrevMonth = () => {
+        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+    };
+
+    const handleNextMonth = () => {
+        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+    };
+
     return (
-        <div className="p-4">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-white">My Habits</h2>
-                <button onClick={() => { setEditingHabit(null); setIsFormVisible(true); }} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center text-2xl w-12 h-12" aria-label="Add new habit">+</button>
-            </div>
+        <div className="p-4 space-y-6">
+             <section>
+                <div className="flex justify-between items-center mb-4 px-2">
+                    <button onClick={handlePrevMonth} className="p-2 rounded-full hover:bg-gray-700 transition-colors" aria-label="Previous month">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </button>
+                    <h3 className="text-lg font-bold text-white">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
+                    <button onClick={handleNextMonth} className="p-2 rounded-full hover:bg-gray-700 transition-colors" aria-label="Next month">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </button>
+                </div>
+                <Calendar currentDate={currentDate} habits={habits} />
+            </section>
+            
+            <section>
+                <div className="flex justify-between items-center">
+                    <h2 className="text-2xl font-bold text-white">My Habits</h2>
+                    <button onClick={() => { setEditingHabit(null); setIsFormVisible(true); }} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg flex items-center justify-center text-3xl w-12 h-12" aria-label="Add new habit">+</button>
+                </div>
+            </section>
+
             <div className="space-y-3">
                 {habits.length > 0 ? (
                     habits.map(habit => (

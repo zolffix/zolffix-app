@@ -37,6 +37,13 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
+const getPastDateString = (daysAgo: number): string => {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    return date.toISOString().split('T')[0];
+};
+
+
 const App: React.FC = () => {
     const [activeScreen, setActiveScreen] = useState<Screen>('home');
     const [users, setUsers] = useLocalStorage<User[]>('zolffix-users', []);
@@ -47,9 +54,12 @@ const App: React.FC = () => {
     const [savedQuotes, setSavedQuotes] = useLocalStorage<Quote[]>('zolffix-saved-quotes', []);
     const [likedQuotes, setLikedQuotes] = useLocalStorage<Quote[]>('zolffix-liked-quotes', []);
     const [habits, setHabits] = useLocalStorage<Habit[]>('zolffix-habits', [
-        { id: '1', name: 'Drink Water', icon: '💧', completed: true, streak: 5, reminderTime: '09:00' },
-        { id: '2', name: 'Read 10 Pages', icon: '📚', completed: false, streak: 2 },
-        { id: '3', name: 'Morning Walk', icon: '🚶‍♂️', completed: false, streak: 12, reminderTime: '07:30' },
+         // Simulating a 5-day streak including today
+        { id: '1', name: 'Drink Water', icon: '💧', completedDates: Array.from({ length: 5 }, (_, i) => getPastDateString(i)), streak: 5, reminderTime: '09:00' },
+        // Simulating a 2-day streak that ended yesterday (not completed today)
+        { id: '2', name: 'Read 10 Pages', icon: '📚', completedDates: [getPastDateString(1), getPastDateString(2)], streak: 2 },
+        // Simulating a 12-day streak that ended yesterday (not completed today)
+        { id: '3', name: 'Morning Walk', icon: '🚶‍♂️', completedDates: Array.from({ length: 12 }, (_, i) => getPastDateString(i + 1)), streak: 12, reminderTime: '07:30' },
     ]);
     const [journalEntries, setJournalEntries] = useLocalStorage<JournalEntry[]>('zolffix-journal', []);
     const [favoriteCategories, setFavoriteCategories] = useLocalStorage<string[]>('zolffix-fav-categories', []);
@@ -67,9 +77,11 @@ const App: React.FC = () => {
             if ('Notification' in window && Notification.permission === 'granted') {
                 const now = new Date();
                 const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                
+                const todayStr = now.toISOString().split('T')[0];
+
                 habits.forEach(habit => {
-                    if (habit.reminderTime === currentTime && !habit.completed) {
+                    const isCompletedToday = habit.completedDates.includes(todayStr);
+                    if (habit.reminderTime === currentTime && !isCompletedToday) {
                         // Using a generic but fitting icon
                         const iconUrl = '/vite.svg';
                         new Notification('Zolffix Habit Reminder', {
