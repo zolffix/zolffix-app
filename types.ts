@@ -25,6 +25,7 @@ export interface Habit {
   icon: string;
   completed: boolean;
   streak: number;
+  reminderTime?: string; // e.g., "14:30"
 }
 
 export interface JournalEntry {

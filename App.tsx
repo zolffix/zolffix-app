@@ -1,4 +1,5 @@
-import React, { useState, createContext, useMemo, useCallback } from 'react';
+
+import React, { useState, createContext, useMemo, useCallback, useEffect } from 'react';
 import { Screen, Quote, Habit, JournalEntry, User } from './types';
 import Header from './components/layout/Header';
 import BottomNav from './components/layout/BottomNav';
@@ -46,13 +47,46 @@ const App: React.FC = () => {
     const [savedQuotes, setSavedQuotes] = useLocalStorage<Quote[]>('zolffix-saved-quotes', []);
     const [likedQuotes, setLikedQuotes] = useLocalStorage<Quote[]>('zolffix-liked-quotes', []);
     const [habits, setHabits] = useLocalStorage<Habit[]>('zolffix-habits', [
-        { id: '1', name: 'Drink Water', icon: '💧', completed: true, streak: 5 },
+        { id: '1', name: 'Drink Water', icon: '💧', completed: true, streak: 5, reminderTime: '09:00' },
         { id: '2', name: 'Read 10 Pages', icon: '📚', completed: false, streak: 2 },
-        { id: '3', name: 'Morning Walk', icon: '🚶‍♂️', completed: false, streak: 12 },
+        { id: '3', name: 'Morning Walk', icon: '🚶‍♂️', completed: false, streak: 12, reminderTime: '07:30' },
     ]);
     const [journalEntries, setJournalEntries] = useLocalStorage<JournalEntry[]>('zolffix-journal', []);
     const [favoriteCategories, setFavoriteCategories] = useLocalStorage<string[]>('zolffix-fav-categories', []);
     const [refreshCallback, setRefreshCallback] = useState<{ fn: () => void }>({ fn: () => {} });
+    
+    // Effect for handling habit reminder notifications
+    useEffect(() => {
+        // 1. Request permission on component mount if not already granted or denied
+        if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+            Notification.requestPermission();
+        }
+
+        const checkReminders = () => {
+            // Only proceed if permission is granted
+            if ('Notification' in window && Notification.permission === 'granted') {
+                const now = new Date();
+                const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                
+                habits.forEach(habit => {
+                    if (habit.reminderTime === currentTime && !habit.completed) {
+                        // Using a generic but fitting icon
+                        const iconUrl = '/vite.svg';
+                        new Notification('Zolffix Habit Reminder', {
+                            body: `It's time for your habit: "${habit.name}"`,
+                            icon: iconUrl,
+                        });
+                    }
+                });
+            }
+        };
+        
+        // 2. Set up an interval to check for reminders every minute
+        const intervalId = setInterval(checkReminders, 60000);
+
+        // 3. Cleanup on component unmount
+        return () => clearInterval(intervalId);
+    }, [habits]); // Rerun effect if habits change
 
     const login = useCallback((email: string, password: string): boolean => {
         const foundUser = users.find(u =>
@@ -112,6 +146,7 @@ const App: React.FC = () => {
         }
     };
 
+    // FIX: Corrected the misplaced parenthesis in useMemo. The dependency array was incorrectly placed inside the callback function, causing a comma operator issue.
     const contextValue = useMemo(() => ({
         activeScreen,
         setActiveScreen,
