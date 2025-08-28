@@ -10,7 +10,7 @@ import ProfileScreen from './components/screens/ProfileScreen';
 import LoginScreen from './components/screens/LoginScreen';
 import OnboardingScreen from './components/screens/OnboardingScreen';
 
-import { auth, db } from './services/firebase';
+import { auth, db } from './firebaseConfig';
 import {
     onAuthStateChanged,
     signInWithEmailAndPassword,
