@@ -2,10 +2,9 @@
 export type Screen = 'home' | 'quotes' | 'habits' | 'journal' | 'profile';
 
 export interface User {
-  id: string;
+  id: string; // Corresponds to Firebase Auth UID
   name: string;
   email: string;
-  password?: string;
 }
 
 export interface Quote {

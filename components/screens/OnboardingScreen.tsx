@@ -41,16 +41,16 @@ const OnboardingScreen: React.FC = () => {
 
     const handleComplete = () => {
         if (!context) return;
-        const initialHabits: Habit[] = [];
+        const initialHabits: Omit<Habit, 'id'>[] = [];
         if (selectedGoals.includes('habits')) {
-            initialHabits.push({ id: `onboard-${Date.now()}-1`, name: 'Drink 8 glasses of water', icon: '💧', completedDates: [], streak: 0 });
-            initialHabits.push({ id: `onboard-${Date.now()}-2`, name: 'Read for 15 minutes', icon: '📚', completedDates: [], streak: 0 });
+            initialHabits.push({ name: 'Drink 8 glasses of water', icon: '💧', completedDates: [], streak: 0 });
+            initialHabits.push({ name: 'Read for 15 minutes', icon: '📚', completedDates: [], streak: 0 });
         }
         if (selectedGoals.includes('journaling')) {
-            initialHabits.push({ id: `onboard-${Date.now()}-3`, name: 'Write a journal entry', icon: '✏️', completedDates: [], streak: 0 });
+            initialHabits.push({ name: 'Write a journal entry', icon: '✏️', completedDates: [], streak: 0 });
         }
         if (selectedGoals.includes('growth')) {
-            initialHabits.push({ id: `onboard-${Date.now()}-4`, name: 'Learn something new', icon: '🧠', completedDates: [], streak: 0 });
+            initialHabits.push({ name: 'Learn something new', icon: '🧠', completedDates: [], streak: 0 });
         }
 
         context.completeOnboarding(initialHabits, favoriteCategories);

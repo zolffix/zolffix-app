@@ -20,20 +20,12 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, isInteractive = true }) =>
 
     const handleLikeToggle = () => {
         if (!context) return;
-        if (isLiked) {
-            context.setLikedQuotes(prev => prev.filter(q => q.id !== quote.id));
-        } else {
-            context.setLikedQuotes(prev => [...prev, quote]);
-        }
+        context.toggleQuoteLiked(quote);
     };
 
     const handleSaveToggle = () => {
         if (!context) return;
-        if (isSaved) {
-            context.setSavedQuotes(prev => prev.filter(q => q.id !== quote.id));
-        } else {
-            context.setSavedQuotes(prev => [...prev, quote]);
-        }
+        context.toggleQuoteSaved(quote);
     };
     
     const handleShare = async () => {

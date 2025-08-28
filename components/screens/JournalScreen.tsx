@@ -54,21 +54,16 @@ const JournalScreen: React.FC = () => {
 
     if (!context) return null;
 
-    const { journalEntries, setJournalEntries } = context;
+    const { journalEntries, addJournalEntry, deleteJournalEntry } = context;
     
     const handleDelete = (id: string) => {
         if (window.confirm('Are you sure you want to delete this journal entry?')) {
-            setJournalEntries(prev => prev.filter(entry => entry.id !== id));
+            deleteJournalEntry(id);
         }
     };
 
     const handleAddEntry = (newEntryData: Omit<JournalEntry, 'id' | 'date'>) => {
-        const newEntry: JournalEntry = {
-            id: `journal-${Date.now()}`,
-            date: new Date().toISOString(),
-            ...newEntryData
-        };
-        setJournalEntries(prev => [newEntry, ...prev]);
+        addJournalEntry(newEntryData);
         setIsAdding(false);
     };
 

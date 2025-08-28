@@ -1,4 +1,5 @@
 
+
 import React, { useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppContext } from '../../App';
 import QuoteCard from '../QuoteCard';
@@ -49,13 +50,11 @@ const HomeScreen: React.FC = () => {
 
     const handleSaveJournal = () => {
         if (journalText.trim() && selectedMood) {
-            const newEntry: JournalEntry = {
-                id: `journal-${Date.now()}`,
+            // FIX: Property 'setJournalEntries' does not exist on type 'AppContextType'. Use `addJournalEntry` instead.
+            context?.addJournalEntry({
                 content: journalText,
                 mood: selectedMood,
-                date: new Date().toISOString(),
-            };
-            context?.setJournalEntries(prev => [newEntry, ...prev]);
+            });
             setJournalText('');
             setSelectedMood(MOODS[0]);
             alert('Journal entry saved!');

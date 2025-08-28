@@ -4,6 +4,7 @@ import { AppContext } from '../../App';
 const LoginScreen: React.FC = () => {
     const [isLoginView, setIsLoginView] = useState(true);
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const context = useContext(AppContext);
 
     // Login state
@@ -15,29 +16,37 @@ const LoginScreen: React.FC = () => {
     const [signupEmail, setSignupEmail] = useState('');
     const [signupPassword, setSignupPassword] = useState('');
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         if (!email || !loginPassword) {
             setError('Please fill in all fields.');
             return;
         }
-        const success = context?.login(email, loginPassword);
-        if (!success) {
-            setError('Invalid credentials. Please try again.');
+        setIsLoading(true);
+        try {
+            await context?.login(email, loginPassword);
+        } catch (err: any) {
+            setError(err.message || 'Invalid credentials. Please try again.');
+        } finally {
+            setIsLoading(false);
         }
     };
     
-    const handleSignup = (e: React.FormEvent) => {
+    const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         if (!name || !signupEmail || !signupPassword) {
             setError('Please fill in all fields.');
             return;
         }
-        const result = context?.signup({ name, email: signupEmail }, signupPassword);
-        if (result && !result.success) {
-            setError(result.message);
+        setIsLoading(true);
+        try {
+            await context?.signup({ name, email: signupEmail }, signupPassword);
+        } catch (err: any) {
+            setError(err.message || 'Could not create account.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -70,8 +79,8 @@ const LoginScreen: React.FC = () => {
                             className="w-full bg-gray-800 text-white p-4 rounded-lg border border-gray-700 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
                             aria-label="Password"
                         />
-                        <button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg transition-colors text-lg">
-                            Sign In
+                        <button type="submit" disabled={isLoading} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg transition-colors text-lg disabled:bg-gray-700 disabled:cursor-not-allowed">
+                            {isLoading ? 'Signing In...' : 'Sign In'}
                         </button>
                     </form>
                 ) : (
@@ -100,8 +109,8 @@ const LoginScreen: React.FC = () => {
                             className="w-full bg-gray-800 text-white p-4 rounded-lg border border-gray-700 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
                             aria-label="Password"
                         />
-                        <button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg transition-colors text-lg">
-                            Sign Up
+                        <button type="submit" disabled={isLoading} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg transition-colors text-lg disabled:bg-gray-700 disabled:cursor-not-allowed">
+                            {isLoading ? 'Creating Account...' : 'Sign Up'}
                         </button>
                     </form>
                 )}

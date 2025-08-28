@@ -194,63 +194,15 @@ const HabitsScreen: React.FC = () => {
 
     if (!context) return null;
     
-    const { habits, setHabits } = context;
-
-    const calculateStreak = (dates: string[]): number => {
-        if (!dates || dates.length === 0) return 0;
-        
-        const dateSet = new Set(dates);
-        const today = new Date();
-        
-        const sortedDates = dates.map(d => new Date(d)).sort((a, b) => b.getTime() - a.getTime());
-        const mostRecentDate = sortedDates[0];
-
-        const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const mostRecentDateOnly = new Date(mostRecentDate.getFullYear(), mostRecentDate.getMonth(), mostRecentDate.getDate());
-        const diffTime = todayDate.getTime() - mostRecentDateOnly.getTime();
-        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-        
-        if (diffDays > 1) return 0;
-        
-        let streak = 0;
-        let currentDate = mostRecentDate;
-        while (true) {
-            const dateString = currentDate.toISOString().split('T')[0];
-            if (dateSet.has(dateString)) {
-                streak++;
-                currentDate.setDate(currentDate.getDate() - 1);
-            } else {
-                break;
-            }
-        }
-        return streak;
-    };
-
+    const { habits, addHabit, updateHabit, deleteHabit, toggleHabitCompleted } = context;
 
     const handleToggleHabit = (id: string) => {
-        const todayStr = getISODateString();
-        setHabits(habits.map(h => {
-            if (h.id === id) {
-                const newCompletedDates = new Set(h.completedDates);
-                if (newCompletedDates.has(todayStr)) {
-                    newCompletedDates.delete(todayStr); // Un-completing
-                } else {
-                    newCompletedDates.add(todayStr); // Completing
-                }
-                const updatedDatesArray = Array.from(newCompletedDates);
-                return { 
-                    ...h, 
-                    completedDates: updatedDatesArray,
-                    streak: calculateStreak(updatedDatesArray),
-                };
-            }
-            return h;
-        }));
+        toggleHabitCompleted(id);
     };
     
     const handleDeleteHabit = (id: string) => {
         if (window.confirm("Are you sure you want to delete this habit? This cannot be undone.")) {
-            setHabits(habits.filter(h => h.id !== id));
+            deleteHabit(id);
         }
     };
     
@@ -261,17 +213,9 @@ const HabitsScreen: React.FC = () => {
 
     const handleSaveHabit = (habitData: Omit<Habit, 'id' | 'streak' | 'completedDates'> & Partial<Habit>) => {
         if (habitData.id) { // Editing existing habit
-            setHabits(habits.map(h => h.id === habitData.id ? { ...h, ...habitData } : h));
+            updateHabit(habitData as Habit);
         } else { // Adding new habit
-            const newHabit: Habit = {
-                id: `habit-${Date.now()}`,
-                name: habitData.name,
-                icon: habitData.icon,
-                completedDates: [],
-                streak: 0,
-                reminderTime: habitData.reminderTime
-            };
-            setHabits([newHabit, ...habits]);
+            addHabit(habitData);
         }
         setIsFormVisible(false);
         setEditingHabit(null);
