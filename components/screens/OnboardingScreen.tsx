@@ -53,7 +53,8 @@ const OnboardingScreen: React.FC = () => {
             initialHabits.push({ name: 'Learn something new', icon: '🧠', completedDates: [], streak: 0 });
         }
 
-        context.completeOnboarding(initialHabits, favoriteCategories);
+        const finalCategories = favoriteCategories.length > 0 ? favoriteCategories : QUOTE_CATEGORIES.slice(0, 3);
+        context.completeOnboarding(initialHabits, finalCategories);
     };
 
     const renderStepOne = () => (

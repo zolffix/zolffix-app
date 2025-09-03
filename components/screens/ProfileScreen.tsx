@@ -7,7 +7,7 @@ const ProfileScreen: React.FC = () => {
 
     if (!context) return null;
     
-    const { user, savedQuotes, likedQuotes, habits, resetData } = context;
+    const { user, savedQuotes, likedQuotes, habits, logout } = context;
     
     const longestStreak = useMemo(() => {
         return habits.reduce((max, habit) => habit.streak > max ? habit.streak : max, 0);
@@ -60,13 +60,13 @@ const ProfileScreen: React.FC = () => {
                 </div>
             </section>
 
-            {/* Reset Data Button */}
+            {/* Logout Button */}
             <section>
                  <button 
-                    onClick={resetData} 
+                    onClick={logout} 
                     className="w-full bg-red-600/80 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg"
                 >
-                    Logout & Reset Data
+                    Logout
                 </button>
             </section>
 

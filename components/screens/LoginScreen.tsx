@@ -24,8 +24,12 @@ const LoginScreen: React.FC = () => {
             return;
         }
         setIsLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        context?.login(email, loginPassword);
+        try {
+            await context?.login(email, loginPassword);
+        } catch (err: any) {
+            setError(err.message || 'Failed to sign in.');
+            setIsLoading(false);
+        }
     };
     
     const handleSignup = async (e: React.FormEvent) => {
@@ -35,9 +39,17 @@ const LoginScreen: React.FC = () => {
             setError('Please fill in all fields.');
             return;
         }
+        if (signupPassword.length < 6) {
+            setError('Password should be at least 6 characters.');
+            return;
+        }
         setIsLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        context?.signup(name, signupEmail);
+        try {
+            await context?.signup(name, signupEmail, signupPassword);
+        } catch (err: any) {
+            setError(err.message || 'Failed to create account.');
+            setIsLoading(false);
+        }
     };
 
     const toggleView = () => {
@@ -95,7 +107,7 @@ const LoginScreen: React.FC = () => {
                             type="password"
                             value={signupPassword}
                             onChange={(e) => setSignupPassword(e.target.value)}
-                            placeholder="Password"
+                            placeholder="Password (min. 6 characters)"
                             className="w-full bg-gray-800 text-white p-4 rounded-lg border border-gray-700 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
                             aria-label="Password"
                         />

@@ -1,4 +1,3 @@
-
 import React, { useState, createContext, useMemo, useCallback, useEffect } from 'react';
 import { Screen, Quote, Habit, JournalEntry, User } from './types';
 import Header from './components/layout/Header';
@@ -10,8 +9,11 @@ import JournalScreen from './components/screens/JournalScreen';
 import ProfileScreen from './components/screens/ProfileScreen';
 import LoginScreen from './components/screens/LoginScreen';
 import OnboardingScreen from './components/screens/OnboardingScreen';
-import useLocalStorage from './hooks/useLocalStorage';
 import { QUOTE_CATEGORIES } from './constants';
+import { auth, db } from './services/firebase';
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, writeBatch, updateDoc, Timestamp, query, orderBy } from 'firebase/firestore';
+
 
 interface AppContextType {
     activeScreen: Screen;
@@ -22,7 +24,7 @@ interface AppContextType {
     journalEntries: JournalEntry[];
     user: User | null;
     favoriteCategories: string[];
-    setFavoriteCategories: React.Dispatch<React.SetStateAction<string[]>>;
+    setFavoriteCategories: (categories: string[]) => void;
     toggleQuoteSaved: (quote: Quote) => void;
     toggleQuoteLiked: (quote: Quote) => void;
     addHabit: (habitData: Omit<Habit, 'id' | 'completedDates' | 'streak'>) => void;
@@ -33,9 +35,9 @@ interface AppContextType {
     deleteJournalEntry: (entryId: string) => void;
     refreshQuotes: () => void;
     setRefreshCallback: (callback: () => void) => void;
-    resetData: () => void;
-    login: (email: string, pass: string) => void;
-    signup: (name: string, email: string) => void;
+    logout: () => void;
+    login: (email: string, pass: string) => Promise<void>;
+    signup: (name: string, email: string, pass: string) => Promise<void>;
     completeOnboarding: (initialHabits: Omit<Habit, 'id'>[], favoriteCategories: string[]) => void;
 }
 
@@ -47,13 +49,17 @@ const calculateStreak = (dates: string[]): number => {
     
     const dateSet = new Set(dates);
     const today = new Date();
-    
-    const sortedDates = dates.map(d => new Date(d)).sort((a, b) => b.getTime() - a.getTime());
-    const mostRecentDate = sortedDates[0];
+    today.setHours(0, 0, 0, 0);
 
-    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const mostRecentDateOnly = new Date(mostRecentDate.getFullYear(), mostRecentDate.getMonth(), mostRecentDate.getDate());
-    const diffTime = todayDate.getTime() - mostRecentDateOnly.getTime();
+    const sortedDates = dates.map(d => {
+        const date = new Date(d);
+        date.setHours(0,0,0,0);
+        return date;
+    }).sort((a, b) => b.getTime() - a.getTime());
+
+    const mostRecentDate = sortedDates[0];
+    
+    const diffTime = today.getTime() - mostRecentDate.getTime();
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
     
     if (diffDays > 1) return 0;
@@ -74,175 +80,214 @@ const calculateStreak = (dates: string[]): number => {
 
 const App: React.FC = () => {
     const [activeScreen, setActiveScreen] = useState<Screen>('home');
-    const [user, setUser] = useLocalStorage<User | null>('zolffix-user', null);
-    const [onboardingComplete, setOnboardingComplete] = useLocalStorage<boolean>('zolffix-onboarding-complete', false);
+    const [user, setUser] = useState<User | null>(null);
+    const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
+    const [isLoading, setIsLoading] = useState(true);
     
-    const [savedQuotes, setSavedQuotes] = useLocalStorage<Quote[]>('zolffix-savedQuotes', []);
-    const [likedQuotes, setLikedQuotes] = useLocalStorage<Quote[]>('zolffix-likedQuotes', []);
-    const [habits, setHabits] = useLocalStorage<Habit[]>('zolffix-habits', []);
-    const [journalEntries, setJournalEntries] = useLocalStorage<JournalEntry[]>('zolffix-journalEntries', []);
-    const [favoriteCategories, setFavoriteCategories] = useLocalStorage<string[]>('zolffix-favoriteCategories', QUOTE_CATEGORIES.slice(0,3));
+    const [savedQuotes, setSavedQuotes] = useState<Quote[]>([]);
+    const [likedQuotes, setLikedQuotes] = useState<Quote[]>([]);
+    const [habits, setHabits] = useState<Habit[]>([]);
+    const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
+    const [favoriteCategories, _setFavoriteCategories] = useState<string[]>(QUOTE_CATEGORIES.slice(0,3));
     const [refreshCallback, setRefreshCallback] = useState<{ fn: () => void }>({ fn: () => {} });
     
-    // Effect for handling habit reminder notifications
+    const clearAppState = () => {
+        setUser(null);
+        setSavedQuotes([]);
+        setLikedQuotes([]);
+        setHabits([]);
+        setJournalEntries([]);
+        _setFavoriteCategories(QUOTE_CATEGORIES.slice(0, 3));
+        setOnboardingComplete(false);
+        setActiveScreen('home');
+    };
+
     useEffect(() => {
-        // Request permission on component mount if not already granted or denied.
-        if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-            Notification.requestPermission().then(permission => {
-                if (permission === 'granted') {
-                    console.log('Notification permission granted.');
-                }
-            });
-        }
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser) {
+                const userDocRef = doc(db, 'users', firebaseUser.uid);
+                const userDocSnap = await getDoc(userDocRef);
 
-        const checkReminders = () => {
-            if (Notification.permission !== 'granted') return;
+                if (userDocSnap.exists()) {
+                    const userData = userDocSnap.data();
+                    const appUser: User = {
+                        id: firebaseUser.uid,
+                        name: userData.name,
+                        email: userData.email,
+                    };
+                    setUser(appUser);
+                    setOnboardingComplete(userData.onboardingComplete || false);
+                    _setFavoriteCategories(userData.favoriteCategories || QUOTE_CATEGORIES.slice(0, 3));
 
-            const now = new Date();
-            const currentDay = now.getDay(); // Sunday - 0, Monday - 1, etc.
-            const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-            const todayStr = now.toISOString().split('T')[0];
+                    // Fetch subcollections
+                    const collections = {
+                        savedQuotes: setSavedQuotes,
+                        likedQuotes: setLikedQuotes,
+                        habits: setHabits,
+                        journalEntries: setJournalEntries,
+                    };
 
-            habits.forEach(habit => {
-                if (habit.reminderTime === currentTime) {
-                    // If reminderDays is not set, default to all days.
-                    const reminderDays = habit.reminderDays && habit.reminderDays.length > 0 ? habit.reminderDays : [0, 1, 2, 3, 4, 5, 6];
-                    
-                    if (reminderDays.includes(currentDay)) {
-                        const lastNotifiedDate = localStorage.getItem(`zolffix-notified-${habit.id}`);
-                        if (lastNotifiedDate !== todayStr) {
-                             new Notification('Zolffix Habit Reminder', {
-                                body: `It's time for: ${habit.name} ${habit.icon}`,
-                                icon: '/vite.svg',
-                            });
-                            localStorage.setItem(`zolffix-notified-${habit.id}`, todayStr);
+                    for (const [key, setter] of Object.entries(collections)) {
+                        let q = collection(db, 'users', firebaseUser.uid, key);
+                        // Sort journal entries by date descending
+                        if (key === 'journalEntries') {
+                            const journalQuery = query(q, orderBy('date', 'desc'));
+                             const querySnapshot = await getDocs(journalQuery);
+                             const data = querySnapshot.docs.map(d => ({...d.data(), id: d.id, date: (d.data().date as Timestamp).toDate().toISOString()})) as JournalEntry[];
+                             // Fix: Cast data to any to resolve TypeScript error with union of setter types.
+                             setter(data as any);
+                        } else {
+                             const querySnapshot = await getDocs(q);
+                             const data = querySnapshot.docs.map(d => ({...d.data(), id: d.id}));
+                             setter(data as any);
                         }
                     }
+
                 }
-            });
-        };
+            } else {
+                clearAppState();
+            }
+            setIsLoading(false);
+        });
+        return () => unsubscribe();
+    }, []);
 
-        // Check reminders every minute.
-        const intervalId = setInterval(checkReminders, 60000);
+    const login = async (email: string, pass: string) => {
+        await signInWithEmailAndPassword(auth, email, pass);
+    };
 
-        // Clean up the interval when the component unmounts.
-        return () => clearInterval(intervalId);
-    }, [habits]);
+    const signup = async (name: string, email: string, pass: string) => {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+        const firebaseUser = userCredential.user;
+        await setDoc(doc(db, "users", firebaseUser.uid), {
+          name,
+          email,
+          onboardingComplete: false,
+          favoriteCategories: QUOTE_CATEGORIES.slice(0,3)
+        });
+    };
+    
+    const logout = async () => {
+        if (window.confirm("Are you sure you want to log out?")) {
+            await signOut(auth);
+        }
+    };
+    
+    const completeOnboarding = useCallback(async (initialHabits: Omit<Habit, 'id'>[], categories: string[]) => {
+        if (!user) return;
+        const batch = writeBatch(db);
+        
+        initialHabits.forEach(h => {
+            const habitRef = doc(collection(db, 'users', user.id, 'habits'));
+            batch.set(habitRef, h);
+        });
 
-    const login = useCallback((email: string, pass: string) => {
-        // Mock login for a local app. It creates a user profile to proceed.
-        const loggedInUser: User = {
-            id: `user-${Date.now()}`,
-            name: email.split('@')[0], // Generate a name from the email
-            email: email,
-        };
-        setUser(loggedInUser);
-    }, [setUser]);
+        const userDocRef = doc(db, 'users', user.id);
+        batch.update(userDocRef, { onboardingComplete: true, favoriteCategories: categories });
 
-    const signup = useCallback((name: string, email: string) => {
-        // Creates a new user profile in local storage.
-        const newUser: User = {
-            id: `user-${Date.now()}`,
-            name: name,
-            email: email,
-        };
-        setUser(newUser);
-    }, [setUser]);
+        await batch.commit();
 
-    const completeOnboarding = useCallback((initialHabits: Omit<Habit, 'id'>[], categories: string[]) => {
+        // Optimistically update local state
         const habitsWithIds: Habit[] = initialHabits.map((h, i) => ({
             ...h,
-            id: `habit-${Date.now()}-${i}`,
+            id: `habit-temp-${Date.now()}-${i}`,
         }));
         setHabits(habitsWithIds);
         if (categories.length > 0) {
-            setFavoriteCategories(categories);
+            _setFavoriteCategories(categories);
         }
         setOnboardingComplete(true);
-    }, [setHabits, setFavoriteCategories, setOnboardingComplete]);
+    }, [user]);
 
-    const toggleQuoteSaved = useCallback((quote: Quote) => {
-        setSavedQuotes(prev => {
-            const isSaved = prev.some(q => q.id === quote.id);
-            if (isSaved) {
-                return prev.filter(q => q.id !== quote.id);
-            } else {
-                return [...prev, quote];
-            }
-        });
-    }, [setSavedQuotes]);
+    const setFavoriteCategories = useCallback(async (categories: string[]) => {
+        if (!user) return;
+        _setFavoriteCategories(categories);
+        const userDocRef = doc(db, 'users', user.id);
+        await updateDoc(userDocRef, { favoriteCategories: categories });
+    }, [user]);
+
+    const toggleQuoteSaved = useCallback(async (quote: Quote) => {
+        if (!user) return;
+        const isSaved = savedQuotes.some(q => q.id === quote.id);
+        setSavedQuotes(prev => isSaved ? prev.filter(q => q.id !== quote.id) : [...prev, quote]);
+        const quoteRef = doc(db, 'users', user.id, 'savedQuotes', quote.id);
+        if (isSaved) await deleteDoc(quoteRef);
+        else await setDoc(quoteRef, quote);
+    }, [user, savedQuotes]);
     
-    const toggleQuoteLiked = useCallback((quote: Quote) => {
-        setLikedQuotes(prev => {
-            const isLiked = prev.some(q => q.id === quote.id);
-            if (isLiked) {
-                return prev.filter(q => q.id !== quote.id);
-            } else {
-                return [...prev, quote];
-            }
-        });
-    }, [setLikedQuotes]);
+    const toggleQuoteLiked = useCallback(async (quote: Quote) => {
+        if (!user) return;
+        const isLiked = likedQuotes.some(q => q.id === quote.id);
+        setLikedQuotes(prev => isLiked ? prev.filter(q => q.id !== quote.id) : [...prev, quote]);
+        const quoteRef = doc(db, 'users', user.id, 'likedQuotes', quote.id);
+        if (isLiked) await deleteDoc(quoteRef);
+        else await setDoc(quoteRef, quote);
+    }, [user, likedQuotes]);
 
-    const addHabit = useCallback((habitData: Omit<Habit, 'id' | 'completedDates' | 'streak'>) => {
-        const newHabit: Habit = { 
-            id: `habit-${Date.now()}`,
-            ...habitData, 
-            completedDates: [], 
-            streak: 0 
-        };
-        setHabits(prev => [...prev, newHabit]);
-    }, [setHabits]);
+    const addHabit = useCallback(async (habitData: Omit<Habit, 'id' | 'completedDates' | 'streak'>) => {
+        if (!user) return;
+        const newHabit: Omit<Habit, 'id'> = { ...habitData, completedDates: [], streak: 0 };
+        const habitCollRef = collection(db, 'users', user.id, 'habits');
+        const newDocRef = doc(habitCollRef);
+        await setDoc(newDocRef, newHabit);
+        setHabits(prev => [{...newHabit, id: newDocRef.id}, ...prev]);
+    }, [user]);
 
-    const updateHabit = useCallback((habit: Habit) => {
+    const updateHabit = useCallback(async (habit: Habit) => {
+        if (!user) return;
         setHabits(prev => prev.map(h => h.id === habit.id ? habit : h));
-    }, [setHabits]);
+        const habitRef = doc(db, 'users', user.id, 'habits', habit.id);
+        const { id, ...habitToSave } = habit;
+        await setDoc(habitRef, habitToSave);
+    }, [user]);
 
-    const deleteHabit = useCallback((habitId: string) => {
+    const deleteHabit = useCallback(async (habitId: string) => {
+        if (!user) return;
         setHabits(prev => prev.filter(h => h.id !== habitId));
-    }, [setHabits]);
+        await deleteDoc(doc(db, 'users', user.id, 'habits', habitId));
+    }, [user]);
 
-    const toggleHabitCompleted = useCallback((habitId: string) => {
-        setHabits(prev => {
-            const habit = prev.find(h => h.id === habitId);
-            if (!habit) return prev;
+    const toggleHabitCompleted = useCallback(async (habitId: string) => {
+         if (!user) return;
+        const habit = habits.find(h => h.id === habitId);
+        if (!habit) return;
 
-            const todayStr = new Date().toISOString().split('T')[0];
-            const newCompletedDates = new Set(habit.completedDates);
-            if (newCompletedDates.has(todayStr)) {
-                newCompletedDates.delete(todayStr);
-            } else {
-                newCompletedDates.add(todayStr);
-            }
-            
-            const updatedDatesArray = Array.from(newCompletedDates);
-            const newStreak = calculateStreak(updatedDatesArray);
+        const todayStr = new Date().toISOString().split('T')[0];
+        const newCompletedDates = new Set(habit.completedDates);
+        if (newCompletedDates.has(todayStr)) {
+            newCompletedDates.delete(todayStr);
+        } else {
+            newCompletedDates.add(todayStr);
+        }
+        
+        const updatedDatesArray = Array.from(newCompletedDates);
+        const newStreak = calculateStreak(updatedDatesArray);
 
-            return prev.map(h => h.id === habitId ? { ...h, completedDates: updatedDatesArray, streak: newStreak } : h);
-        });
-    }, [setHabits]);
+        const updatedHabit = { ...habit, completedDates: updatedDatesArray, streak: newStreak };
+        setHabits(prev => prev.map(h => h.id === habitId ? updatedHabit : h));
 
-    const addJournalEntry = useCallback((entry: Omit<JournalEntry, 'id' | 'date'>) => {
-        const newEntry: JournalEntry = { 
-            id: `journal-${Date.now()}`,
-            ...entry, 
-            date: new Date().toISOString() 
-        };
-        setJournalEntries(prev => [newEntry, ...prev]);
-    }, [setJournalEntries]);
+        const habitRef = doc(db, 'users', user.id, 'habits', habitId);
+        await updateDoc(habitRef, { completedDates: updatedDatesArray, streak: newStreak });
+    }, [user, habits]);
 
-    const deleteJournalEntry = useCallback((entryId: string) => {
+    const addJournalEntry = useCallback(async (entry: Omit<JournalEntry, 'id' | 'date'>) => {
+        if (!user) return;
+        const newEntry: Omit<JournalEntry, 'id'> = { ...entry, date: new Date().toISOString() };
+        const journalCollRef = collection(db, 'users', user.id, 'journalEntries');
+        const newDocRef = doc(journalCollRef);
+        // Firestore specific timestamp for ordering
+        await setDoc(newDocRef, { ...entry, date: Timestamp.now() }); 
+        setJournalEntries(prev => [{...newEntry, id: newDocRef.id}, ...prev]);
+    }, [user]);
+
+    const deleteJournalEntry = useCallback(async (entryId: string) => {
+        if (!user) return;
         setJournalEntries(prev => prev.filter(entry => entry.id !== entryId));
-    }, [setJournalEntries]);
+        await deleteDoc(doc(db, 'users', user.id, 'journalEntries', entryId));
+    }, [user]);
 
     const setRefreshCallbackFn = useCallback((callback: () => void) => {
         setRefreshCallback({ fn: callback });
-    }, []);
-
-    const resetData = useCallback(() => {
-        if (window.confirm("Are you sure you want to log out and reset all your data? This cannot be undone.")) {
-            localStorage.clear();
-            window.location.reload();
-        }
     }, []);
 
     const renderScreen = () => {
@@ -276,15 +321,23 @@ const App: React.FC = () => {
         deleteJournalEntry,
         refreshQuotes: refreshCallback.fn,
         setRefreshCallback: setRefreshCallbackFn,
-        resetData,
+        logout,
         login,
         signup,
         completeOnboarding,
     }), [
         activeScreen, savedQuotes, likedQuotes, habits, journalEntries, user, favoriteCategories, refreshCallback.fn,
-        toggleQuoteSaved, toggleQuoteLiked, addHabit, updateHabit, deleteHabit, toggleHabitCompleted, addJournalEntry, deleteJournalEntry, setRefreshCallbackFn, setFavoriteCategories, resetData,
+        toggleQuoteSaved, toggleQuoteLiked, addHabit, updateHabit, deleteHabit, toggleHabitCompleted, addJournalEntry, deleteJournalEntry, setRefreshCallbackFn, setFavoriteCategories, logout,
         login, signup, completeOnboarding
     ]);
+    
+    if (isLoading) {
+        return (
+            <div className="bg-gray-900 min-h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-cyan-400"></div>
+            </div>
+        );
+    }
 
     return (
         <AppContext.Provider value={contextValue}>
