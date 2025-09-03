@@ -25,6 +25,7 @@ export interface Habit {
   completedDates: string[]; // e.g., ["2023-10-27", "2023-10-26"]
   streak: number;
   reminderTime?: string; // e.g., "14:30"
+  reminderDays?: number[]; // [0, 1, 2, 3, 4, 5, 6] for Sun -> Sat
 }
 
 export interface JournalEntry {

@@ -50,7 +50,6 @@ const HomeScreen: React.FC = () => {
 
     const handleSaveJournal = () => {
         if (journalText.trim() && selectedMood) {
-            // FIX: Property 'setJournalEntries' does not exist on type 'AppContextType'. Use `addJournalEntry` instead.
             context?.addJournalEntry({
                 content: journalText,
                 mood: selectedMood,

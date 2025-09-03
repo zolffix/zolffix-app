@@ -24,13 +24,8 @@ const LoginScreen: React.FC = () => {
             return;
         }
         setIsLoading(true);
-        try {
-            await context?.login(email, loginPassword);
-        } catch (err: any) {
-            setError(err.message || 'Invalid credentials. Please try again.');
-        } finally {
-            setIsLoading(false);
-        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+        context?.login(email, loginPassword);
     };
     
     const handleSignup = async (e: React.FormEvent) => {
@@ -41,13 +36,8 @@ const LoginScreen: React.FC = () => {
             return;
         }
         setIsLoading(true);
-        try {
-            await context?.signup({ name, email: signupEmail }, signupPassword);
-        } catch (err: any) {
-            setError(err.message || 'Could not create account.');
-        } finally {
-            setIsLoading(false);
-        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+        context?.signup(name, signupEmail);
     };
 
     const toggleView = () => {

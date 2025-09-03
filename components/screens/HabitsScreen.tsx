@@ -82,6 +82,7 @@ const HabitForm: React.FC<{ onSave: (habit: Omit<Habit, 'id' | 'streak' | 'compl
     const [name, setName] = useState('');
     const [icon, setIcon] = useState('💪');
     const [reminderTime, setReminderTime] = useState('');
+    const [reminderDays, setReminderDays] = useState<number[]>([]);
     const popularIcons = ['💪', '💧', '📚', '🚶‍♂️', '🧘', '🍎', '☀️', '✏️', '❤️', '😊', '⭐', '🏆'];
     
     useEffect(() => {
@@ -89,17 +90,42 @@ const HabitForm: React.FC<{ onSave: (habit: Omit<Habit, 'id' | 'streak' | 'compl
             setName(habitToEdit.name);
             setIcon(habitToEdit.icon);
             setReminderTime(habitToEdit.reminderTime || '');
+            setReminderDays(habitToEdit.reminderDays || []);
         }
     }, [habitToEdit]);
+
+    const handleToggleDay = (dayIndex: number) => {
+      setReminderDays(prev =>
+        prev.includes(dayIndex)
+          ? prev.filter(d => d !== dayIndex)
+          : [...prev, dayIndex].sort()
+      );
+    };
+
+    const handleTimeChange = (newTime: string) => {
+        const oldTime = reminderTime;
+        setReminderTime(newTime);
+        // If setting a time where there was none, default to all days selected
+        if (newTime && !oldTime) {
+            setReminderDays([0, 1, 2, 3, 4, 5, 6]);
+        }
+        // If clearing the time, also clear selected days
+        if (!newTime && oldTime) {
+            setReminderDays([]);
+        }
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (name.trim()) {
+            // A reminder is active only if a time is set AND at least one day is selected.
+            const isReminderActive = reminderTime && reminderDays.length > 0;
             onSave({
                 ...habitToEdit,
                 name: name.trim(),
                 icon,
-                reminderTime: reminderTime || undefined,
+                reminderTime: isReminderActive ? reminderTime : undefined,
+                reminderDays: isReminderActive ? reminderDays : [],
             });
         }
     };
@@ -132,16 +158,34 @@ const HabitForm: React.FC<{ onSave: (habit: Omit<Habit, 'id' | 'streak' | 'compl
                                 id="reminder"
                                 type="time"
                                 value={reminderTime}
-                                onChange={(e) => setReminderTime(e.target.value)}
+                                onChange={(e) => handleTimeChange(e.target.value)}
                                 className="w-full bg-gray-700 text-white p-3 rounded-md focus:ring-2 focus:ring-cyan-500 focus:outline-none"
                             />
                             {reminderTime && (
-                                <button type="button" onClick={() => setReminderTime('')} className="ml-2 text-gray-400 hover:text-white p-2 rounded-full" aria-label="Clear reminder time">
+                                <button type="button" onClick={() => handleTimeChange('')} className="ml-2 text-gray-400 hover:text-white p-2 rounded-full" aria-label="Clear reminder time">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                 </button>
                             )}
                         </div>
                     </div>
+
+                    {reminderTime && (
+                         <div>
+                            <label className="text-sm text-gray-400 mb-2 block">Remind me on</label>
+                            <div className="flex justify-between">
+                                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                                <button
+                                    type="button"
+                                    key={index}
+                                    onClick={() => handleToggleDay(index)}
+                                    className={`w-10 h-10 rounded-full font-bold transition-colors ${reminderDays.includes(index) ? 'bg-cyan-500 text-gray-900' : 'bg-gray-700 text-gray-300'}`}
+                                >
+                                    {day}
+                                </button>
+                                ))}
+                            </div>
+                         </div>
+                    )}
                     <div className="flex justify-end space-x-3 pt-2">
                         <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-500">Cancel</button>
                         <button type="submit" className="px-4 py-2 bg-cyan-600 rounded-lg hover:bg-cyan-500">{habitToEdit ? 'Save Changes' : 'Add Habit'}</button>
@@ -150,6 +194,15 @@ const HabitForm: React.FC<{ onSave: (habit: Omit<Habit, 'id' | 'streak' | 'compl
             </div>
         </div>
     );
+};
+
+const formatReminderDays = (days?: number[]): string => {
+    if (!days || days.length === 0 || days.length === 7) return 'Daily';
+    if (days.length === 5 && days.every(d => d > 0 && d < 6)) return 'Weekdays';
+    if (days.length === 2 && days.includes(0) && days.includes(6)) return 'Weekends';
+
+    const dayMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days.map(d => dayMap[d]).join(', ');
 };
 
 const HabitItem: React.FC<{ habit: Habit; onToggle: (id: string) => void; onEdit: (habit: Habit) => void; onDelete: (id: string) => void }> = ({ habit, onToggle, onEdit, onDelete }) => {
@@ -165,7 +218,7 @@ const HabitItem: React.FC<{ habit: Habit; onToggle: (id: string) => void; onEdit
                         {habit.reminderTime && (
                             <div className="flex items-center text-cyan-400/80">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                <span className="ml-1">{formatTime(habit.reminderTime)}</span>
+                                <span className="ml-1">{formatTime(habit.reminderTime)} ({formatReminderDays(habit.reminderDays)})</span>
                             </div>
                         )}
                     </div>
