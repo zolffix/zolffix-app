@@ -9,8 +9,9 @@ import JournalScreen from './components/screens/JournalScreen';
 import ProfileScreen from './components/screens/ProfileScreen';
 import LoginScreen from './components/screens/LoginScreen';
 import OnboardingScreen from './components/screens/OnboardingScreen';
+import FirebaseConfigErrorScreen from './components/screens/FirebaseConfigErrorScreen';
 import { QUOTE_CATEGORIES } from './constants';
-import { auth, db } from './services/firebase';
+import { auth, db, isFirebaseConfigured } from './services/firebase';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, writeBatch, updateDoc, Timestamp, query, orderBy } from 'firebase/firestore';
 
@@ -79,6 +80,12 @@ const calculateStreak = (dates: string[]): number => {
 };
 
 const App: React.FC = () => {
+    // This check must come before any hooks are called.
+    // It prevents the app from crashing and guides the user to fix the configuration.
+    if (!isFirebaseConfigured) {
+        return <FirebaseConfigErrorScreen />;
+    }
+
     const [activeScreen, setActiveScreen] = useState<Screen>('home');
     const [user, setUser] = useState<User | null>(null);
     const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);

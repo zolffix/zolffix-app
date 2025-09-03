@@ -7,12 +7,23 @@
     <title>Zolffix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      // In a real-world application, this key should be stored in a secure
-      // environment and not exposed on the client side. For this demo, we are
-      // setting it here to allow the Gemini API to be used.
+      // Suppress the specific Babel warning about the in-browser transformer.
+      // This is a workaround for the development environment setup, as a build
+      // step is not available in this context.
+      const originalWarn = console.warn;
+      console.warn = function(...args) {
+        if (typeof args[0] === 'string' && args[0].startsWith('You are using the in-browser Babel transformer.')) {
+          return;
+        }
+        originalWarn.apply(console, args);
+      };
+
+      // IMPORTANT: You need to provide your own Google AI Studio API Key for the app to work.
+      // 1. Visit https://aistudio.google.com/app/apikey to get your key.
+      // 2. Paste the key below, replacing "YOUR_GEMINI_API_KEY_HERE".
       window.process = {
         env: {
-          API_KEY: "AIzaSyDNMiDMrAvvi1dbgmQRxXDN01W2h26uwxA"
+          API_KEY: "YOUR_GEMINI_API_KEY_HERE"
         }
       };
     </script>
