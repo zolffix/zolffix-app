@@ -6,6 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Zolffix</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // In a real-world application, this key should be stored in a secure
+      // environment and not exposed on the client side. For this demo, we are
+      // setting it here to allow the Gemini API to be used.
+      window.process = {
+        env: {
+          API_KEY: "AIzaSyDNMiDMrAvvi1dbgmQRxXDN01W2h26uwxA"
+        }
+      };
+    </script>
   <script type="importmap">
 {
   "imports": {
