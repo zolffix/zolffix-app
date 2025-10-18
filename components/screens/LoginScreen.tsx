@@ -7,11 +7,9 @@ const LoginScreen: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const context = useContext(AppContext);
 
-    // Login state
     const [email, setEmail] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
 
-    // Signup state
     const [name, setName] = useState('');
     const [signupEmail, setSignupEmail] = useState('');
     const [signupPassword, setSignupPassword] = useState('');
@@ -28,10 +26,11 @@ const LoginScreen: React.FC = () => {
             await context?.login(email, loginPassword);
         } catch (err: any) {
             setError(err.message || 'Failed to sign in.');
+        } finally {
             setIsLoading(false);
         }
     };
-    
+
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
@@ -48,6 +47,7 @@ const LoginScreen: React.FC = () => {
             await context?.signup(name, signupEmail, signupPassword);
         } catch (err: any) {
             setError(err.message || 'Failed to create account.');
+        } finally {
             setIsLoading(false);
         }
     };
@@ -62,7 +62,7 @@ const LoginScreen: React.FC = () => {
             <div className="w-full text-center">
                 <h1 className="text-5xl font-bold text-cyan-400 mb-2 font-serif">Zolffix</h1>
                 <p className="text-gray-400 mb-10">{isLoginView ? 'Welcome back to your journey.' : 'Start your journey today.'}</p>
-                
+
                 {isLoginView ? (
                     <form onSubmit={handleLogin} className="space-y-5">
                         <input
@@ -116,9 +116,9 @@ const LoginScreen: React.FC = () => {
                         </button>
                     </form>
                 )}
-                
+
                 {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
-                
+
                 <button onClick={toggleView} className="mt-6 text-cyan-400 hover:text-cyan-300 text-sm">
                     {isLoginView ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
                 </button>

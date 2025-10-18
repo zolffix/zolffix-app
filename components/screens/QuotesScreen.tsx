@@ -2,13 +2,37 @@ import React, { useState, useEffect, useCallback, useRef, useContext } from 'rea
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { QUOTE_CATEGORIES } from '../../constants';
 import { Quote } from '../../types';
-import { generateQuotes } from '../../services/geminiService';
 import QuoteCard from '../QuoteCard';
 import { AppContext } from '../../App';
 
+const mockQuotes = [
+    { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+    { text: "Life is what happens when you're busy making other plans.", author: "John Lennon" },
+    { text: "The future belongs to those who believe in the beauty of their dreams.", author: "Eleanor Roosevelt" },
+    { text: "It is during our darkest moments that we must focus to see the light.", author: "Aristotle" },
+    { text: "The way to get started is to quit talking and begin doing.", author: "Walt Disney" },
+];
+
+const getImageUrl = (keywords: string): string => {
+    const processedKeywords = keywords.replace(/[^a-zA-Z0-9\s,]/g, '').replace(/\s+/g, ',');
+    return `https://source.unsplash.com/1080x1080/?${encodeURIComponent(processedKeywords)}`;
+};
+
+const generateMockQuote = (category: string): Quote => {
+    const randomMock = mockQuotes[Math.floor(Math.random() * mockQuotes.length)];
+    return {
+        id: `quote-${Date.now()}-${Math.random()}`,
+        text: randomMock.text,
+        author: randomMock.author,
+        category,
+        imageUrl: getImageUrl(`${category},dark,cinematic`),
+        imageKeyword: category,
+    };
+};
+
 const QuotesScreen: React.FC = () => {
     const context = useContext(AppContext);
-    
+
     const getInitialCategory = useCallback(() => {
         if (context?.favoriteCategories && context.favoriteCategories.length > 0) {
             return context.favoriteCategories[Math.floor(Math.random() * context.favoriteCategories.length)];
@@ -21,38 +45,32 @@ const QuotesScreen: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const isLoadingRef = useRef(false);
 
-    const fetchAndSetQuotes = useCallback(async (count = 1, replace = false) => {
+    const fetchAndSetQuotes = useCallback((count = 1, replace = false) => {
         if (isLoadingRef.current) return;
         isLoadingRef.current = true;
         setIsLoading(true);
-        try {
-            const newQuotes = await generateQuotes(selectedCategory, count);
-            const validQuotes = newQuotes.filter(q => q && q.id);
+
+        setTimeout(() => {
+            const newQuotes = Array.from({ length: count }).map(() => generateMockQuote(selectedCategory));
             if (replace) {
-                setQuotes(validQuotes);
+                setQuotes(newQuotes);
             } else {
-                setQuotes(prevQuotes => [...prevQuotes, ...validQuotes]);
+                setQuotes(prevQuotes => [...prevQuotes, ...newQuotes]);
             }
-        } catch (error) {
-            console.error("Failed to fetch quotes:", error);
-        } finally {
             setIsLoading(false);
             isLoadingRef.current = false;
-        }
+        }, 500);
     }, [selectedCategory]);
 
-    // Handle category change: clear existing quotes and fetch new ones.
     useEffect(() => {
         setQuotes([]);
         fetchAndSetQuotes(3, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedCategory]);
+    }, [selectedCategory, fetchAndSetQuotes]);
 
     const handleRefresh = useCallback(() => {
        fetchAndSetQuotes(3, true);
     }, [fetchAndSetQuotes]);
 
-    // Setup refresh handler for the header button
     const { setRefreshCallback } = context!;
     useEffect(() => {
         if (setRefreshCallback) {
@@ -64,7 +82,7 @@ const QuotesScreen: React.FC = () => {
             }
         };
     }, [handleRefresh, setRefreshCallback]);
-    
+
     const Loader = () => (
         <div className="flex justify-center items-center py-6">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400"></div>
@@ -82,8 +100,8 @@ const QuotesScreen: React.FC = () => {
                             key={category}
                             onClick={() => setSelectedCategory(category)}
                             className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
-                                selectedCategory === category 
-                                ? 'bg-cyan-500 text-gray-900' 
+                                selectedCategory === category
+                                ? 'bg-cyan-500 text-gray-900'
                                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                             }`}
                         >
